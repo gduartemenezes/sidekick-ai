@@ -108,6 +108,10 @@ class Sidekick:
             Overall you should give the Assistant the benefit of the doubt if they say they've done something. But you should reject if you feel that more work should go into this.
 
             """
+        if state["feedback_on_work"]:
+            user_message += f"Also, note that in a prior attempt from the Assistant, you provided this feedback: {state['feedback_on_work']}\n"
+            user_message += "If you're seeing the Assistant repeating the same mistakes, then consider responding that user input is required."
+        
         evaluator_messages = [SystemMessage(content=system_message), HumanMessage(content=user_message)]
         evaluator_result = self.evaluator_llm_with_tool.invoke(evaluator_messages)
         
