@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from typing_extensions import TypedDict
 from typing import Annotated, Dict, List, Any, Optional
 from langgraph.graph.message import add_messages
+from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from pydantic import BaseModel, Field
@@ -129,3 +130,22 @@ class Sidekick:
             return "END"
         else:
             return "worker"
+    
+    async def build_graph(self):
+        # Set up Graph with State
+        graph_builder = StateGraph(State)
+        
+        # Add Nodes
+        graph_builder.add_node("worker", self.worker)
+        graph_builder.add_node("tools", self.tools)
+        graph_builder.add_node("evaluator", self.evaluator)
+        
+        # Add edges
+        graph_builder.add_conditional_edges("worker", self.worker_router, {"tools": "tools", "evaluator": "evaluator"})
+        graph_builder.add_edge("tools", "worker")
+        graph_builder.add_conditional_edges("evaluator", self.route_based_evaluation, {"worker": "worker", "END": END})
+        graph_builder.add_edge(START, "worker")
+        
+        # Compile the graph
+        self.graph = graph_builder.compile(checkpointer=self.memory)
+        
