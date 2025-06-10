@@ -4,7 +4,7 @@ from typing_extensions import TypedDict
 from typing import Annotated, Dict, List, Any, Optional
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import MemorySaver
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from pydantic import BaseModel, Field
 import uuid
 
@@ -70,7 +70,16 @@ class Sidekick:
         
         # Invoke the LLM with tools
         response = self.worker_llm_with_tools.invoke(messages)
-            
+    
+    def format_conversation(self, messages: List[Any]) -> str:
+        conversation = "Conversation history:\n\n"
+        for message in messages:
+            if isinstance(message, HumanMessage):
+                conversation += f"User: {message.content}\n"
+            elif isinstance(message, AIMessage):
+                text = message.content or "[Tools use]"
+                conversation += f"Assistant: {text}\n"
+        return conversation
               
         
         
