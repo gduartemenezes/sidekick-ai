@@ -8,6 +8,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from pydantic import BaseModel, Field
 import uuid
+import asyncio
 
 
 load_dotenv(override=True)
@@ -164,4 +165,17 @@ class Sidekick:
         reply = {"role": "assistant", "content": result["messages"]['-2'].content}
         feedback = {"role": "assistant", "content": result["messages"]['-1'].content}
         return history + [user, reply, feedback]
+    
+    def cleanup(self):
+        if self.browser:
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(self.browser.close())
+                if self.playwright:
+                    loop.create_task(self.playwright.stop())
+            except RuntimeError:
+                asyncio.run(self.browser.close())
+                if self.playwright:
+                    asyncio.run(self.playwright.stop())
+                    
     
