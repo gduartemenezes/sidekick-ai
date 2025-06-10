@@ -119,4 +119,9 @@ class Sidekick:
         }
         
         return new_state
-        
+    
+    def route_based_evaluation(self, state: State) -> str:
+        if state["success_criteria_met"] or state["user_input_needed"]:
+            return "END"
+        else:
+            return "worker"
