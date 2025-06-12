@@ -6,9 +6,12 @@ from langgraph.graph.message import add_messages
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 import uuid
 import asyncio
+
+from tools.tools import other_tools, playwright_tools
 
 
 load_dotenv(override=True)
@@ -28,7 +31,7 @@ class EvaluatorOutput(BaseModel):
 class Sidekick:
     def __init__(self):
         self.worker_llm_with_tools = None
-        self.evaluator_llm_with_tool = None
+        self.evaluator_llm_with_output = None
         self.tools = None
         self.llm_with_tools = None
         self.graph = None
@@ -36,6 +39,18 @@ class Sidekick:
         self.memory = MemorySaver()
         self.browser = None
         self.playwright = None
+    
+    async def setup(self):
+        self.tools, self.browser, self.playwright = await playwright_tools()
+        self.tools += await other_tools()
+        
+        worker_llm = ChatOpenAI(model="gpt-4o-mini")
+        self.worker_llm_with_tools = worker_llm.bind_tools(self.tools)
+        
+        evaluator_llm = ChatOpenAI(model="gpt-4o-mini")
+        self.evaluator_llm_with_outuput = evaluator_llm.with_structured_output(EvaluatorOutput)
+        
+        await self.build_graph()
     
     def worker(self, state: State) -> Dict[str,Any]:
         system_message = f"""You are a helpful assistant that can use tools to complete tasks.
@@ -115,7 +130,7 @@ class Sidekick:
             user_message += "If you're seeing the Assistant repeating the same mistakes, then consider responding that user input is required."
         
         evaluator_messages = [SystemMessage(content=system_message), HumanMessage(content=user_message)]
-        evaluator_result = self.evaluator_llm_with_tool.invoke(evaluator_messages)
+        evaluator_result = self.evaluator_llm_with_output.invoke(evaluator_messages)
         
         new_state = {
             "messages":[{"role": "assistant", "content": f"Evaluator Feedback on this answer: {evaluator_result.feedback}"}],
